@@ -11,11 +11,11 @@ st.caption("Ask agriculture questions in Malayalam or English")
 
 question = st.text_input(
     "Ask your question",
-    placeholder="കാന്താരിയെ ബാധിക്കുന്ന കീടങ്ങൾ?"
+    placeholder="പയറിനെ ബാധിക്കുന്ന കീടങ്ങൾ?"
 )
 
 if st.button("Ask"):
     if question.strip():
         with st.spinner("Searching Knowledge Graph..."):
             answer = ask_graph(question)
-            st.success(answer)
+        st.success(answer)
