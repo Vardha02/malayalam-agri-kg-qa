@@ -9,35 +9,102 @@ PASSWORD = st.secrets.get("NEO4J_PASSWORD", os.getenv("NEO4J_PASSWORD"))
 driver = GraphDatabase.driver(URI, auth=(USER, PASSWORD))
 
 ALIASES = {
-    "chilli": "മുളക്", "chili": "മുളക്",
-    "ginger": "ഇഞ്ചി", "banana": "വാഴ",
-    "cocoa": "കൊക്കോ", "coconut": "തെങ്ങ്",
-    "കാന്താരി": "കാന്താരി", "കാന്താരിയെ": "കാന്താരി", "കാന്താരിക്ക്": "കാന്താരി",
-    "മുളക്": "മുളക്", "മുളകിനെ": "മുളക്", "മുളകിന്റെ": "മുളക്",
-    "പയർ": "പയർ", "പയറിനെ": "പയർ", "പയറിന്": "പയർ",
-    "ഇഞ്ചി": "ഇഞ്ചി", "ഇഞ്ചിക്ക്": "ഇഞ്ചി", "ഇഞ്ചിയുടെ": "ഇഞ്ചി",
-    "വാഴ": "വാഴ", "വാഴയുടെ": "വാഴ",
-    "കൊക്കോ": "കൊക്കോ", "കൊക്കോയുടെ": "കൊക്കോ",
+    "കാന്താരി": "കാന്താരി",
+    "കാന്താരിയെ": "കാന്താരി",
+    "കാന്താരിക്ക്": "കാന്താരി",
+    "കാന്താരിയുടെ": "കാന്താരി",
+
+    "മുളക്": "മുളക്",
+    "മുളകിനെ": "മുളക്",
+    "മുളകിന്": "മുളക്",
+    "മുളകിന്റെ": "മുളക്",
+
+    "പയർ": "പയർ",
+    "പയറിനെ": "പയർ",
+    "പയറിന്": "പയർ",
+    "പയറിന്റെ": "പയർ",
+
+    "ഇഞ്ചി": "ഇഞ്ചി",
+    "ഇഞ്ചിയെ": "ഇഞ്ചി",
+    "ഇഞ്ചിക്ക്": "ഇഞ്ചി",
+    "ഇഞ്ചിയുടെ": "ഇഞ്ചി",
+
+    "വാഴ": "വാഴ",
+    "വാഴയെ": "വാഴ",
+    "വാഴയ്ക്ക്": "വാഴ",
+    "വാഴയുടെ": "വാഴ",
+
+    "കൊക്കോ": "കൊക്കോ",
+    "കൊക്കോയെ": "കൊക്കോ",
+    "കൊക്കോയ്ക്ക്": "കൊക്കോ",
+    "കൊക്കോയുടെ": "കൊക്കോ",
+
+    "തെങ്ങ്": "തെങ്ങ്",
+    "തെങ്ങിനെ": "തെങ്ങ്",
+    "തെങ്ങിന്": "തെങ്ങ്",
+    "തെങ്ങിന്റെ": "തെങ്ങ്",
+
+    "ചക്ക": "ചക്ക",
+    "കപ്പ": "കപ്പ",
+    "ചീര": "ചീര",
+    "വഴുതന": "വഴുതന",
+
+    "chilli": "മുളക്",
+    "chili": "മുളക്",
+    "ginger": "ഇഞ്ചി",
+    "banana": "വാഴ",
+    "cocoa": "കൊക്കോ",
+    "coconut": "തെങ്ങ്",
+    "beans": "പയർ",
 }
+
+
+def get_all_crops():
+    query = """
+    MATCH (n:Entity)
+    WHERE n.label = 'CROP'
+    RETURN DISTINCT n.name AS name
+    """
+
+    with driver.session() as session:
+        rows = session.run(query).data()
+
+    return [row["name"] for row in rows]
+
 
 def get_crop_from_question(question):
     q = question.strip().lower()
+
     for alias, crop in ALIASES.items():
         if alias.lower() in q:
             return crop
+
+    crops = get_all_crops()
+
+    for crop in crops:
+        if crop in question:
+            return crop
+
     return None
+
 
 def get_question_type(question):
     q = question.lower()
-    if "കീട" in q or "pest" in q:
+
+    if "കീട" in q or "pest" in q or "pests" in q:
         return "PEST", "കീടങ്ങൾ"
-    if "രോഗ" in q or "disease" in q:
+
+    if "രോഗ" in q or "disease" in q or "diseases" in q:
         return "DISEASE", "രോഗങ്ങൾ"
-    if "വളം" in q or "വളങ്ങൾ" in q or "fertilizer" in q:
+
+    if "വളം" in q or "വളങ്ങൾ" in q or "fertilizer" in q or "fertilizers" in q:
         return "FERTILIZER", "വളങ്ങൾ"
+
     if "പരിഹാരം" in q or "ചികിത്സ" in q or "treatment" in q:
         return "TREATMENT", "ചികിത്സകൾ"
+
     return None, "ബന്ധപ്പെട്ട വിവരങ്ങൾ"
+
 
 def ask_graph(question):
     crop = get_crop_from_question(question)
@@ -50,7 +117,8 @@ def ask_graph(question):
     if label:
         query = """
         MATCH (a:Entity)-[r:RELATION]->(b:Entity)
-        WHERE b.name = $crop AND a.label = $label
+        WHERE b.name = $crop
+        AND a.label = $label
         RETURN DISTINCT a.name AS name
         ORDER BY name
         """
@@ -71,9 +139,11 @@ def ask_graph(question):
         return f"{crop} എന്ന വിളയ്ക്ക് {heading} സംബന്ധിച്ച വിവരം ഗ്രാഫിൽ ലഭ്യമല്ല."
 
     answer = f"{crop} - {heading}:\n"
+
     for row in rows:
         if "label" in row:
             answer += f"- {row['name']} ({row['label']})\n"
         else:
             answer += f"- {row['name']}\n"
+
     return answer.strip()
